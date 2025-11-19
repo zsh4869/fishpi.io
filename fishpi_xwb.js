@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         鱼派小尾巴
 // @namespace    http://tampermonkey.net/
-// @version      1.6.3
+// @version      1.6.5
 // @description  try to thank APTX-4869!
 // @author       (江户川-哀酱)APTX-4869
 // @match        https://fishpi.cn/cr
@@ -14,11 +14,20 @@
 
 (function () {
     'use strict';
-    const version_us = "v1.6.3";
+    const version_us = "v1.6.5";
+    var vipList = Label.vipUserList;
     var heads = document.getElementsByTagName("head");
     var link = document.getElementsByTagName("link");
     var suffixFlag = window.localStorage['xwb_flag'] ? JSON.parse(window.localStorage['xwb_flag']) : false;
+    var zspdFlag = window.localStorage['zspd_flag'] ? JSON.parse(window.localStorage['zspd_flag']) : false;
+    if (!zspdFlag) {
+        Label.vipUserList = vipList;
+    } else {
+        Label.vipUserList = [];
+    }
+    console.log('众生平等：' + zspdFlag);
     var tongji_flag = window.localStorage['fish_game_flag'] ? parseInt(window.localStorage['fish_game_flag']) : -1;
+    var oldMsgTime = window.localStorage['oldMsgTime'] ? window.localStorage['oldMsgTime'] : 0;
     var autoParseFlag = true;
     var borderFlag = window.localStorage['borderFlag'];
     var lspCDKEY = window.localStorage['lspCDKEY'];
@@ -26,16 +35,27 @@
     var focus_users = focusStorage.split(",");
     // 渔场token
     var yc_token = window.localStorage['yc_token'] ? window.localStorage['yc_token'] : '';
+    Label.vipUsers = [];
     // console.log(lspCDKEY);
     GM_registerMenuCommand("小尾巴开关", () => {
         suffixFlag = !suffixFlag;
         window.localStorage['xwb_flag'] = suffixFlag;
         xwb_btn.textContent = suffixFlag? '小尾巴：on' : '小尾巴：off';
     });
-    GM_registerMenuCommand("渔场游戏统计", () => {
+    GM_registerMenuCommand("众生平等", () => {
+        zspdFlag = !zspdFlag;
+        window.localStorage['zspd_flag'] = zspdFlag;
+        zspd_btn.textContent = zspdFlag ? '众生平等：on' : '众生平等：off';
+        if (!zspdFlag) {
+            Label.vipUserList = vipList;
+        } else {
+            Label.vipUserList = [];
+        }
+    });
+    GM_registerMenuCommand("精灵消息监听", () => {
         tongji_flag = tongji_flag * -1;
         window.localStorage['fish_game_flag'] = tongji_flag;
-        console.log("渔场游戏统计" + (tongji_flag > 0 ? "开启" : "关闭"));
+        console.log("精灵消息监听" + (tongji_flag > 0 ? "开启" : "关闭"));
         window.location.reload();
     });
     GM_registerMenuCommand("聊天框边框", () => {
@@ -94,6 +114,27 @@
         return hyd;
     }
 
+    ChatRoom.setVipUserName = function(e, t) {
+        if (zspdFlag) {
+            return '    <span class="ft-gray">' + (null != t ? t + "-" : "") + e.userNickname + "</span>&nbsp;\n"
+        } else {
+            const a = this.vipUserList.find((t => t.userId == e.userOId));
+            if (a && "" != a.configJson) {
+                const s = []
+                , {bold: n, underline: o, color: i} = a.configJson
+                , {lvCode: l} = a;
+                let r = ""
+                , c = "";
+                return n && s.push("font-weight: bold;"),
+                o && s.push("text-decoration: underline;"),
+                i && i.startsWith("#") ? s.push(`color: ${i};`) : c = i,
+                r = s.join(""),
+                '<span class="ft-gray ' + c + '" style="' + r + '">' + (null != t ? t + "-" : "") + e.userNickname + "</span>&nbsp;\n"
+            }
+            return '    <span class="ft-gray">' + (null != t ? t + "-" : "") + e.userNickname + "</span>&nbsp;\n"
+        }
+    }
+
     for (let i = 0; i < link.length; i++) {
         if (link[i].rel == 'icon') {
             link[i].href = 'https://www.baidu.com/img/baidu_85beaf5496f291521eb75ba38eacbd87.svg';
@@ -101,8 +142,8 @@
     }
     // Your code here...
     ChatRoom.send = function (needwb) {
-        var hyd = getHYD();
-        var wbMsg = '\n\n\n> ——嘀嘀🎉[' + hyd + '%] [如何使用小尾巴](https://fishpi.cn/article/1658802906181) ';
+        // var hyd = getHYD();
+        var wbMsg = '\n\n\n> ——嘀嘀🎉 [如何使用小尾巴](https://fishpi.cn/article/1658802906181) ';
         var t, e;
         ChatRoom.isSend || (ChatRoom.isSend = !0,
             e = {
@@ -115,7 +156,7 @@
                 type: "POST",
                 cache: !1,
                 data: JSON.stringify({
-                    content: t.trim().length == 0 || (!suffixFlag) || needwb == 0 || t.trim().startsWith('凌 ') || t.trim().startsWith('鸽 ') || t.trim().startsWith('小冰 ') || t.trim().startsWith('点歌 ') || t.trim().startsWith('TTS ') || t.trim().startsWith('朗读 ') ? t : t + wbMsg,
+                    content: t.trim().length == 0 || (!suffixFlag) || needwb == 0 || t.trim().startsWith('~ ') || t.trim().startsWith('/ ') || t.trim().startsWith('鸽 ') || t.trim().startsWith('冰冰 ') || t.trim().startsWith('点歌 ') || t.trim().startsWith('TTS ') || t.trim().startsWith('朗读 ') ? t : t + wbMsg,
                     client: "Web/小尾巴" + version_us
                 }),
                 beforeSend: function () {
@@ -151,84 +192,27 @@
     // 信息
     var info = document.createElement("button");
     info.id = "info";
-    info.textContent = "精灵背包";
+    info.textContent = "冰冰背包";
     info.className = "red";
     info.setAttribute('style', 'margin-right:5px');
     //绑定按键点击功能
     info.onclick = function () {
-        sendMsgApi("凌 背包");
+        sendMsgApi("冰冰 背包");
         return;
     };
 
-
-    var word = document.createElement("button");
-    word.id = "word";
-    word.textContent = "小冰红包";
-    word.className = "red";
-    word.setAttribute('style', 'margin-right:5px');
-    //绑定按键点击功能
-    word.onclick = function () {
-        sendMsgApi("小冰 来个红包 " + getRandomInt(10, 99));
-        return;
-    };
-
-    // 信息
-    var dlw = document.createElement("button");
-    dlw.id = "info";
-    dlw.textContent = "参与欢乐时光";
-    dlw.className = "green";
-    dlw.setAttribute('style', 'margin-right:5px');
-    //绑定按键点击功能
-    dlw.onclick = function () {
-        var redPacketData = {
-            "content": "[redpacket]{\"type\":\"specify\",\"money\":\"64\",\"count\":\"1\",\"msg\":\"总不能一直不出1吧\",\"recivers\":[\"sevenSummer\"]}[/redpacket]",
-            "client": "Web/小尾巴快捷端" + version_us
-        };
-        $.ajax({
-            url: "https://fishpi.cn/chat-room/send",
-            type: "POST",
-            async: false,
-            data: JSON.stringify(redPacketData),
-            success: function (e) {
-
-            }
-        });
-    };
 
     // 打劫
     var jl_hlsg = document.createElement("button");
     jl_hlsg.id = "hlsg";
-    jl_hlsg.textContent = "开启欢乐时光";
+    jl_hlsg.textContent = "查询积分";
     jl_hlsg.className = "red";
     jl_hlsg.setAttribute('style', 'margin-right:5px');
     //绑定按键点击功能
     jl_hlsg.onclick = function () {
-        sendMsgApi("凌 欢乐时光");
+        sendMsgApi("小斗士 查询积分");
     };
 
-    // 打劫
-    var sxw = document.createElement("button");
-    sxw.id = "dj";
-    sxw.textContent = "打劫";
-    sxw.className = "red";
-    sxw.setAttribute('style', 'margin-right:5px');
-    //绑定按键点击功能
-    sxw.onclick = function () {
-        sendMsgApi("小冰 去打劫");
-        sendMsgApi("凌 去探索");
-    };
-
-    // 乞讨
-    var ge_qt = document.createElement("button");
-    ge_qt.id = "qt";
-    ge_qt.textContent = "乞讨";
-    ge_qt.className = "red";
-    ge_qt.setAttribute('style', 'margin-right:5px');
-    //绑定按键点击功能
-    ge_qt.onclick = function () {
-        sendMsgApi("鸽 行行好吧");
-        // sendMsgApi("小冰 开盲盒");
-    };
 
     // 盲盒
     var ice_mh = document.createElement("button");
@@ -239,66 +223,9 @@
     //绑定按键点击功能
     ice_mh.onclick = function () {
         // sendMsgApi("鸽 行行好吧");
-        sendMsgApi("小冰 开盲盒");
+        sendMsgApi("冰冰 开盲盒");
     };
 
-    // 捡鱼叉
-    var jl_jyc = document.createElement("button");
-    jl_jyc.id = "jyc";
-    jl_jyc.textContent = "捡鱼叉";
-    jl_jyc.className = "red";
-    jl_jyc.setAttribute('style', 'margin-right:5px');
-    //绑定按键点击功能
-    jl_jyc.onclick = function () {
-        // sendMsgApi("凌 捡鱼叉 " + getRandomInt(0,99));
-        sendJLMsg("捡鱼叉");
-    };
-
-    // 摸渔网
-    var jl_myw = document.createElement("button");
-    jl_myw.id = "myw";
-    jl_myw.textContent = "摸渔网";
-    jl_myw.className = "red";
-    jl_myw.setAttribute('style', 'margin-right:5px');
-    //绑定按键点击功能
-    jl_myw.onclick = function () {
-        // sendMsgApi("凌 捡鱼叉 " + getRandomInt(0,99));
-        sendJLMsg("摸渔网");
-    };
-
-    // biu
-    var jl_biu = document.createElement("button");
-    jl_biu.id = "yyc";
-    jl_biu.textContent = "biu";
-    jl_biu.className = "red";
-    jl_biu.setAttribute('style', 'margin-right:5px');
-    //绑定按键点击功能
-    jl_biu.onclick = function () {
-        // sendMsgApi("凌 biu vmet " + getRandomInt(0,99));
-        sendJLMsg("biu", "vmet");
-    };
-
-    // 精灵的周四/五/六事件
-    var jl_week = document.createElement("button");
-    jl_week.id = "yyc";
-    jl_week.textContent = "周四/五/六";
-    jl_week.className = "red";
-    jl_week.setAttribute('style', 'margin-right:5px');
-    //绑定按键点击功能
-    jl_week.onclick = function () {
-        var msg = '';
-        var t = getWeek();
-        if (t == 4) {
-            msg = '凌 V50'
-        } else if (t == 5) {
-            msg = '凌 TGIF'
-        } else if (t == 6) {
-            msg = '凌 窝囊费'
-        } else {
-            return;
-        }
-        sendMsgApi(msg);
-    };
 
     // 小尾巴开关
     var xwb_btn = document.createElement("button");
@@ -314,34 +241,30 @@
         window.localStorage['xwb_flag'] = suffixFlag;
     };
 
-     // roll
-    var ge_roll = document.createElement("button");
-    ge_roll.id = "rol";
-    ge_roll.textContent = "roll";
-    ge_roll.className = "red";
-    ge_roll.setAttribute('style', 'margin-right:5px');
+    // zspd_btn
+    var zspd_btn = document.createElement("button");
+    zspd_btn.id = "zspd";
+    zspd_btn.textContent = zspdFlag? '众生平等：on' : '众生平等：off';
+    zspd_btn.className = "red";
+    zspd_btn.setAttribute('style', 'margin-right:5px');
     //绑定按键点击功能
-    ge_roll.onclick = function () {
-        // sendMsgApi("鸽 行行好吧");
-        sendMsgApi("鸽 ROLL " + getRandomInt(0,99));
+    zspd_btn.onclick = function () {
+        zspdFlag = !zspdFlag;
+        console.log('众生平等：' + zspdFlag);
+        zspd_btn.textContent = zspdFlag ? '众生平等：on' : '众生平等：off';
+        window.localStorage['zspd_flag'] = zspdFlag;
+        if (!zspdFlag) {
+            Label.vipUserList = vipList;
+        } else {
+            Label.vipUserList = [];
+        }
     };
 
-    // roll
-    var ge_qa = document.createElement("button");
-    ge_qa.id = "rol";
-    ge_qa.textContent = "勇士题";
-    ge_qa.className = "red";
-    ge_qa.setAttribute('style', 'margin-right:5px');
-    //绑定按键点击功能
-    ge_qa.onclick = function () {
-        // sendMsgApi("鸽 行行好吧");
-        sendMsgApi("鸽 勇士题 " + getRandomInt(0,99));
-    };
 
     // 清除通知和私信
     var clearMsg = document.createElement("button");
     clearMsg.id = "clearMsg";
-    clearMsg.textContent = "清空私信";
+    clearMsg.textContent = "清空通知";
     clearMsg.className="red";
     clearMsg.setAttribute('style','margin-right:5px');
     //绑定按键点击功能
@@ -365,32 +288,12 @@
         return
     };
 
-    // 大招
-    var jl_zhen = document.createElement("button");
-    jl_zhen.id = "zhen";
-    jl_zhen.textContent = "暴雨梨花针";
-    jl_zhen.className = "red";
-    jl_zhen.setAttribute('style', 'margin-right:5px');
-    //绑定按键点击功能
-    jl_zhen.onclick = function () {
-        sendMsgApi("凌 暴雨梨花针");
-    };
 
-    elve.appendChild(ge_roll);
-    elve.appendChild(ge_qa);
-    elve.appendChild(jl_jyc);
-    elve.appendChild(jl_biu);
-    elve.appendChild(jl_myw);
     elve.appendChild(ice_mh);
-    elve.appendChild(ge_qt);
-    elve.appendChild(jl_week);
-    elve.appendChild(sxw);
-    elve.appendChild(jl_zhen);
     elve.appendChild(jl_hlsg);
-    elve.appendChild(dlw);
     elve.appendChild(info);
-    elve.appendChild(word);
     elve.appendChild(xwb_btn);
+    elve.appendChild(zspd_btn);
     elve.appendChild(clearMsg);
     elve.id = "elves";
     elve.align = "right";
@@ -470,7 +373,7 @@
     // 渲染记事本
     if (tongji_flag > 0) {
         var personInfo = $(".side").eq(0).find(".person-info").eq(0);
-        personInfo.after('<div class="module note" style="width: 100%;height: 200px;overflow: hidden;"><div class=""><div type="text" style="width: 100%;height: 30px;padding: 5px 55px 5px 10px;box-sizing: border-box;border: 1px solid #eee;font-size: 12px;background-color: #000;color: #FFF;">精灵消息<span style="position: absolute;right: 45px;cursor: pointer;" id="fishDetail">收益统计</span><span style="position: absolute;right: 10px;cursor: pointer;" id="reconnectSevenSummer">重连</span></div></div>');
+        personInfo.after('<div class="module note" style="width: 100%;height: 200px;overflow: hidden;"><div class=""><div type="text" style="width: 100%;height: 30px;padding: 5px 55px 5px 10px;box-sizing: border-box;border: 1px solid #eee;font-size: 12px;background-color: #000;color: #FFF;">精灵消息<span style="position: absolute;right: 10px;cursor: pointer;" id="reconnectSevenSummer">重连</span></div></div>');
         $(".note").eq(0).append('<div id="noteMsgList" style="width: 100%;height: 180px;overflow-y: scroll;"></div>');
     }
 
@@ -487,13 +390,14 @@
     let privateChatHB;
     var PrivateWss;
     function initPrivateChannel() {
-        console.info('tongji_flag_f', tongji_flag);
+        getFirstPageMsg();
+        // console.info('tongji_flag_f', tongji_flag);
         if (tongji_flag < 0) {
             return;
         }
-        PrivateWss = new WebSocket("wss://fishpi.cn/chat-channel?apiKey=" + Label.node.apiKey + "&toUser=sevenSummer");
+        PrivateWss = new WebSocket("wss://fishpi.cn/chat-channel?apiKey=" + Label.node.apiKey + "&toUser=its21f");
         PrivateWss.onopen = function() {
-            renderNoteMsg("精灵已连接……")
+            renderNoteMsg("摸鱼帮小管家已连接……")
         }
         ,
         PrivateWss.onmessage = function(e) {
@@ -501,8 +405,8 @@
             if (!t.markdown) {
                 return
             }
+            window.localStorage['oldMsgTime'] = t.oId;
             renderNoteMsg(t.markdown);
-            tongji(t.markdown, t.content);
         }
         ,
         PrivateWss.onclose = function() {
@@ -512,6 +416,33 @@
         PrivateWss.onerror = function(e) {
             console.log("ERROR", e)
         }
+    }
+
+    /**
+     * 获取前20条消息
+     */
+    function getFirstPageMsg() {
+        $.ajax({
+            url: "https://fishpi.cn/chat/get-message?apiKey=" + Label.node.apiKey + "&toUser=its21f&page=1&pageSize=20",
+            type: "GET",
+            async: false,
+            success: function (e) {
+                var arr = e.data;
+                // arr倒序
+                arr.reverse();
+                for (let i = 0; i < arr.length; i++) {
+                    // 渲染消息
+                    var msg = arr[i].markdown;
+                    var time = arr[i].oId;
+                    if (time > oldMsgTime) {
+                        renderNoteMsg(msg);
+                    }
+                }
+                // 更新将本地内存中oldMsgTime的值
+                oldMsgTime = arr[arr.length - 1].oId;
+                window.localStorage['oldMsgTime'] = oldMsgTime;
+            }
+        });
     }
 
     // 渲染记事本消息
@@ -528,162 +459,124 @@
             console.log('聊天室已连接');
         }
         if (ChatRoomChannel.ws || e == 1) {
-            ChatRoomChannel.ws.onmessage = function (e) {
-                var o = JSON.parse(e.data);
-
-                //console.log(a);
-                switch (o.type) {
-                    case "barrager":
-                        var s = o.barragerContent,
-                            l = o.barragerColor,
-                            r = o.userName,
-                            i = o.userAvatarURL,
-                            c = o.userNickname;
-                        let e = "";
-                        i = {
-                            img: i,
-                            info: e = "" != c && null != c ? c + ": " + s : r + ": " + s,
-                            href: Label.servePath + "/member/" + r,
-                            close: !1,
-                            speed: Math.round(10 * Math.random() + 10),
-                            color: l
-                        };
-                        $("body").barrager(i);
-                        break;
-                    case "discussChanged":
-                        c = o.whoChanged,
-                            s = o.newDiscuss,
-                            r = "<div class='newDiscussNotice' style='color: rgb(50 50 50);margin-bottom: 8px;text-align: center;display: none;'><svg><use xlink:href='#pound'></use></svg>&nbsp;<a href=\"" + Label.servePath + "/member/" + c + '" target="_blank">' + c + "</a> 编辑了话题：<a href='javascript:void(0)' style='text-decoration: none'>" + s + "</a></div>";
-                        $("#chats").prepend(r),
-                            $(".newDiscussNotice").slideDown(500),
-                            $("#discuss-title").text(s);
-                        break;
-                    case "redPacketStatus":
-                        var l = o.whoGive,
-                            i = o.whoGot,
-                            c = o.got,
-                            r = o.count,
-                            s = o.oId,
-                            d = o.dice;
-                        let n;
-                        if (null == d)
-                            n = '<a href="' + Label.servePath + "/member/" + i + '" target="_blank">' + i + '</a> 抢到了 <a href="' + Label.servePath + "/member/" + l + '" target="_blank">' + l + '</a> 的 <a style="cursor: pointer" onclick="ChatRoom.unpackRedPacket(\'' + s + "')\">红包</a>";
-                        else {
-                            let e;
-                            switch (d.bet) {
-                                case "big":
-                                    e = "大";
-                                    break;
-                                case "small":
-                                    e = "小";
-                                    break;
-                                case "leopard":
-                                    e = "豹子"
-                            }
-                            var m = d.chips;
-                            n = '<a href="' + Label.servePath + "/member/" + i + '" target="_blank">' + i + '</a> 在 <a href="' + Label.servePath + "/member/" + l + '" target="_blank">' + l + '</a> 的 <a style="cursor: pointer" onclick="ChatRoom.bet(\'' + s + "')\">盘口</a> 下注" + m + "积分买" + e
-                        }
-                        c === r ? ($("#chatroom" + o.oId).find(".hongbao__item").css("opacity", ".36"),
-                                   $("#chatroom" + o.oId).find(".redPacketDesc").html("已经被抢光啦"),
-                                   n += null == d ? "，红包已被领完 (" + c + "/" + r + ")" : "，已封盘 (" + c + "/" + r + ")") : n += " (" + c + "/" + r + ")";
-                        i = "<div class='redPacketNotice' style='color: rgb(50 50 50);margin-bottom: 8px;text-align: center;display: none;'><svg><use xlink:href='#redPacketIcon'></use></svg>&nbsp;" + n + "</div>";
-                        $("#chats").prepend(i),
-                            $(".redPacketNotice").slideDown(500);
-                        break;
-                    case "online":
-                        for (var h in $("#discuss-title").text(o.discussing),
-                             $("#onlineCnt").text(o.onlineChatCnt),
-                             $("#indexOnlineChatCnt").text(o.onlineChatCnt),
-                             Label.onlineAvatarData = "",
-                             o.users) {
-                            h = o.users[h];
-                            Label.onlineAvatarData += '<a target="_blank" data-name="' + h.userName + '"\nhref="' + h.homePage + '">\n<img style=\'margin-bottom: 10px\' class="avatar avatar-small" aria-label="' + h.userName + '"\nsrc="' + h.userAvatarURL48 + '">\n</a>'
-                        }
-                        Util.listenUserCard();
-                        break;
-                    case "revoke":
-                        $("#chatroom" + o.oId).remove(),
-                            $("#chatindex" + o.oId).remove();
-                        break;
-                    case "refresh":
-                        $("#chats").empty(),
-                            page = 0,
-                            ChatRoom.more();
-                        break;
-                    case "customMessage":
-                        var aptx = "<div class='customNotice' style='color: rgb(118 118 118);margin-bottom: 12px;text-align: center;display: none;'>" + '官方礼仪-哀酱说：请注意，贵宾VIP即将动身💓' + "</div>";
-                        $("#chats").prepend(aptx),
-                            $(".customNotice").slideDown(500);
-                        r = "<div class='customNotice' style='color: rgb(118 118 118);margin-bottom: 12px;text-align: center;display: none;'>" + o.message + "</div>";
-                        $("#chats").prepend(r),
-                            $(".customNotice").slideDown(500);
-                        break;
-                    case "msg":
-
-                        // 此处监听特别关注列表用户
-                        if (focus_users.includes(o.userName)) {
-                            var notificat = new Notification('特别关注：', {
-                                dir: 'rtl', //dir : 文字的方向；它的值可以是 auto（自动）, ltr（从左到右）, or rtl（从右到左）
-                                body: o.userName + ' 出现了，快来跟TA互动吧'//body: 通知中额外显示的字符串
-                            });
-                        }
-                        // 统计背包
-                        if (o.md && o.userName == 'sevenSummer' && o.md.indexOf('@' + Label.currentUserName) > -1 && o.md.indexOf('今天背包冷气很足') > -1) {
-                            // 统计背包内的数据
-                            tongjiBag(o.md);
-                        }
-
-                        d = o.userName;
-                        let t = o.content;
-                        let md = o.md,
-                            avatar = o.userAvatarURL;
-                        var myCatchUsersParam = window.localStorage['robot_list'];
-                        let myCatchUsers = [];
-                        if (myCatchUsersParam && myCatchUsersParam.length > 0) {
-                            myCatchUsers = myCatchUsersParam.split(",");
-                        }
-                        if (myCatchUsers.includes(d) && (-1 == t.indexOf('"msgType":"redPacket"') && -1 == t.indexOf('"msgType":"weather"') && -1 == t.indexOf('"msgType":"music"'))) {
-                            var i = '<div class="robot-msg-item"><div class="avatar" style="background-image: url(' + avatar + ')"></div><div class="robot-msg-content"><div class="robot-username"><p>' + d + "</p></div> " + t + ' <div class="fn__right" style="margin-top: 5px; font-size: 10px;">' + o.time + "</div></div></div>";
-                            ChatRoom.addRobotMsg(i)
-                        } else if ($("#catch-word").prop("checked") && -1 == t.indexOf('"msgType":"redPacket"') && (md.startsWith("鸽 ") || md.startsWith("小冰 ") || md.startsWith("凌 ") || md.startsWith("ida "))) {
-                            var r = '<div class="robot-msg-item"><div class="avatar" style="background-image: url(' + avatar + ')"></div><div class="robot-msg-content"><div class="robot-username"><p>' + d + "</p></div> " + t + ' <div class="fn__right" style="margin-top: 5px; font-size: 10px;">' + o.time + "</div></div></div>";
-                            ChatRoom.addRobotMsg(r)
-                        } else {
-                            0 === $("#chatRoomIndex").length && $("#chatroom" + o.oId).length <= 0 && (ChatRoom.renderMsg(o),
-                                                                                                       ChatRoom.resetMoreBtnListen()),
-                                0 !== $("#chatRoomIndex").has("#emptyChatRoom").length && $("#emptyChatRoom").remove();
-                            let e = o.userNickname;
-                            e = void 0 !== e && "" !== e ? e + " ( " + d + " )" : d,
-                                -1 !== t.indexOf('"msgType":"redPacket"') && (t = "[收到红包，请在完整版聊天室查看]"),
-                                $("#chatRoomIndex").prepend('<li class="fn-flex" id="chatindex' + o.oId + '" style=\'display: none; border-bottom: 1px solid #eee;\'>\n    <a rel="nofollow" href="/member/' + o.userName + '">\n        <div class="avatar tooltipped tooltipped-n"\n             aria-label="' + o.userName + '"\n             style="background-image:url(\'' + o.userAvatarURL48 + '\')"></div>\n    </a>\n    <div class="fn-flex-1">\n        <div class="ft-smaller">\n            <a rel="nofollow" href="/member/' + o.userName + '">\n                <span class="ft-gray">' + e + '</span>\n            </a>\n        </div>\n        <div class="vditor-reset comment ' + Label.chatRoomPictureStatus + '">\n            ' + t + "\n        </div>\n    </div>\n</li>"),
-                                11 === $("#chatRoomIndex li.fn-flex").length && $("#chatRoomIndex li.fn-flex:last").fadeOut(199, function() {
-                                $("#chatRoomIndex li.fn-flex:last").remove()
-                            }),
-                                $("#chatRoomIndex li:first").slideDown(200),
-                                Util.listenUserCard(),
-                                "object" == typeof ChatRoom && ChatRoom.imageViewer()
-                        }
+            ChatRoomChannel.ws.onmessage = function(e) {
+                var n = JSON.parse(e.data);
+                if (zspdFlag) {
+                    n.sysMetal = "";
                 }
-                //自动解密
-                /* if (autoParseFlag) {
-            var baiziMsgArr = document.getElementsByClassName('kaibai');
-            if (baiziMsgArr.length > 0) {
-                var codeStr = baiziMsgArr[0].innerText;
-                let newStr = "https://sexy.1433.top/" + codeStr + '?token=' + lspCDKEY;
-                var details_dom = document.createElement("details");
-                var summary_dom = document.createElement('summary');
-                summary_dom.innerText = '解密：';
-                details_dom.append(summary_dom);
-                var oA = document.createElement("img");
-                oA.src = newStr;
-                oA.referrerPolicy = "no-referrer";
-                details_dom.append(oA);
-                baiziMsgArr[0].after(details_dom);
-                baiziMsgArr[0].setAttribute('class', 'complate_span')
+                switch (n.type) {
+                case "barrager":
+                    let e = n.barragerContent
+                    , a = n.barragerColor
+                    , o = n.userName
+                    , s = n.userAvatarURL
+                    , r = n.userNickname
+                    , i = "";
+                    i = "" != r && null != r ? r + ": " + e : o + ": " + e;
+                    let l = {
+                        img: s,
+                        info: i,
+                        href: Label.servePath + "/member/" + o,
+                        close: !1,
+                        speed: Math.round(10 * Math.random() + 10),
+                        color: a
+                    };
+                    $("body").barrager(l);
+                    break;
+                case "discussChanged":
+                    let c = n.whoChanged
+                    , d = n.newDiscuss
+                    , m = "<div class='newDiscussNotice' style='color: rgb(50 50 50);margin-bottom: 12px;text-align: center;display: none;'><svg><use xlink:href='#pound'></use></svg>&nbsp;<a href=\"" + Label.servePath + "/member/" + c + '" target="_blank">' + c + "</a> 编辑了话题：<a href='javascript:void(0)' style='text-decoration: none'>" + d + "</a></div>";
+                    $("#chats").prepend(m),
+                    $(".newDiscussNotice").slideDown(500),
+                    $("#discuss-title").text(d);
+                    break;
+                case "redPacketStatus":
+                    let h, f = n.whoGive, p = n.whoGot, g = n.got, v = n.count, u = n.oId, b = n.dice;
+                    if (null == b)
+                        h = '<a href="' + Label.servePath + "/member/" + p + '" target="_blank">' + p + '</a> 抢到了 <a href="' + Label.servePath + "/member/" + f + '" target="_blank">' + f + '</a> 的 <a style="cursor: pointer" onclick="ChatRoom.unpackRedPacket(\'' + u + "')\">红包</a>";
+                    else {
+                        let e;
+                        switch (b.bet) {
+                        case "big":
+                            e = "大";
+                            break;
+                        case "small":
+                            e = "小";
+                            break;
+                        case "leopard":
+                            e = "豹子"
+                        }
+                        let n = b.chips;
+                        h = '<a href="' + Label.servePath + "/member/" + p + '" target="_blank">' + p + '</a> 在 <a href="' + Label.servePath + "/member/" + f + '" target="_blank">' + f + '</a> 的 <a style="cursor: pointer" onclick="ChatRoom.bet(\'' + u + "')\">盘口</a> 下注" + n + "积分买" + e
+                    }
+                    g === v ? ($("#chatroom" + n.oId).find(".hongbao__item").css("opacity", ".36"),
+                    $("#chatroom" + u).find(".hongbao__item").hasClass("opened") || $("#chatroom" + u).find(".hongbao__item").addClass("opened"),
+                    $("#chatroom" + n.oId + " .hongbao__item").removeAttr("onclick").attr("onclick", "ChatRoom.unpackRedPacket(" + u + ");"),
+                    $("#chatroom" + n.oId).find(".redPacketDesc").html("已经被抢光啦"),
+                    h += null == b ? "，红包已被领完 (" + g + "/" + v + ")" : "，已封盘 (" + g + "/" + v + ")") : h += " (" + g + "/" + v + ")";
+                    let w = "<div class='redPacketNotice' style='color: rgb(50 50 50);margin-bottom: 12px;text-align: center;display: none;'><svg><use xlink:href='#redPacketIcon'></use></svg>&nbsp;" + h + "</div>";
+                    $("#chats").prepend(w),
+                    $(".redPacketNotice").slideDown(500);
+                    break;
+                case "online":
+                    for (var t in $("#discuss-title").text(n.discussing),
+                    $("#onlineCnt").text(n.onlineChatCnt),
+                    $("#indexOnlineChatCnt").text(n.onlineChatCnt),
+                    Label.onlineAvatarData = "",
+                    n.users) {
+                        let e = n.users[t];
+                        Label.onlineAvatarData += '<a target="_blank" data-name="' + e.userName + '"\nhref="' + e.homePage + '">\n<img style=\'margin-bottom: 10px\' class="avatar avatar-small" aria-label="' + e.userName + '"\nsrc="' + e.userAvatarURL48 + '">\n</a>'
+                    }
+                    Util.listenUserCard();
+                    break;
+                case "revoke":
+                    $("#chatroom" + n.oId).remove(),
+                    $("#chatindex" + n.oId).remove();
+                    break;
+                case "refresh":
+                    ChatRoom.flashScreen();
+                    break;
+                case "customMessage":
+                    var aptx = "<div class='customNotice' style='color: rgb(118 118 118);margin-bottom: 12px;text-align: center;display: none;'>" + '官方礼仪-哀酱说：请注意，贵宾VIP即将动身💓' + "</div>";
+                    $("#chats").prepend(aptx),
+                    $(".customNotice").slideDown(500);
+                    let C = "<div class='customNotice' style='color: rgb(118 118 118);margin-bottom: 12px;text-align: center;display: none;'>" + n.message + "</div>";
+                    $("#chats").prepend(C),
+                    $(".customNotice").slideDown(500);
+                    break;
+                case "refreshBarrager":
+                    $("#barragerCost").text(n.cost),
+                    $("#barragerUnit").text(n.unit);
+                    break;
+                case "msg":
+                    // 此处监听特别关注列表用户
+                    if (focus_users.includes(n.userName)) {
+                        var notificat = new Notification('特别关注：', {
+                            dir: 'rtl', //dir : 文字的方向；它的值可以是 auto（自动）, ltr（从左到右）, or rtl（从右到左）
+                            body: n.userName + ' 出现了，快来跟TA互动吧'//body: 通知中额外显示的字符串
+                        });
+                    }
+                    0 === $("#chatRoomIndex").length && $("#chatroom" + n.oId).length <= 0 && (ChatRoom.renderMsg(n),
+                    ChatRoom.resetMoreBtnListen()),
+                    0 !== $("#chatRoomIndex").has("#emptyChatRoom").length && $("#emptyChatRoom").remove();
+                    let k = n.userNickname
+                    , x = n.userName;
+                    k = void 0 !== k && "" !== k ? k + " (" + x + ")" : x;
+                    let R = n.content;
+                    -1 !== R.indexOf('"msgType":"redPacket"') && (R = "[收到红包，请在完整版聊天室查看]"),
+                    -1 !== R.indexOf('"msgType":"weather"') && (R = "[天气卡片，请在完整版聊天室查看]"),
+                    -1 !== R.indexOf('"msgType":"music"') && (R = "[音乐卡片，请在完整版聊天室查看]"),
+                    $("#chatRoomIndex").prepend('<li class="fn-flex" id="chatindex' + n.oId + '" style=\'display: none; border-bottom: 1px solid #eee;\'>\n    <a rel="nofollow" href="/member/' + n.userName + '">\n        <div class="avatar tooltipped tooltipped-n"\n             aria-label="' + n.userName + '"\n             style="background-image:url(\'' + n.userAvatarURL48 + '\')"></div>\n    </a>\n    <div class="fn-flex-1">\n        <div class="ft-smaller">\n            <a rel="nofollow" href="/member/' + n.userName + '">\n                <span class="ft-gray">' + k + '</span>\n            </a>\n        </div>\n        <div class="vditor-reset comment ' + Label.chatRoomPictureStatus + '">\n            ' + ChatRoomChannel.filterContent(R) + "\n        </div>\n    </div>\n</li>"),
+                    11 === $("#chatRoomIndex li.fn-flex").length && $("#chatRoomIndex li.fn-flex:last").fadeOut(199, (function() {
+                        $("#chatRoomIndex li.fn-flex:last").remove()
+                    }
+                    )),
+                    $("#chatRoomIndex li:first").slideDown(200),
+                    Util.listenUserCard(),
+                    "object" == typeof ChatRoom && ChatRoom.imageViewer()
+                }
             }
-        }*/
-
-            };
         } else {console.info('消息监听失败')}
         if (e != 1) {
             console.info('tongji_flag', tongji_flag);
@@ -733,189 +626,8 @@
         await navigator.clipboard.writeText(text);
         Util.closeAlert();
     }
-    // 重置
-    Util.reTongji = function reTongji() {
-        newOpt.bagChi = fish_tongji.bagChi;
-        newOpt.bagWan = fish_tongji.bagWan;
-        newOpt.bagCha = fish_tongji.bagCha;
-        newOpt.yuchaList = fish_tongji.yuchaList;
-        newOpt.byDateStr = fish_tongji.byDateStr;
-        fish_tongji = newOpt;
-        fish_tongji.dateStr = new Date().toLocaleString();
-        fish_tongji.date = new Date().getDate();
-        window.localStorage['fish-tongji'] = JSON.stringify(fish_tongji);
-        Util.closeAlert();
-    }
-
-    async function tongjiBag(md) {
-        if (md.match(/`鱼翅`还有 ...`\d+`个~/)) {
-            var yuchiMd = md.match(/`鱼翅`还有 ...`\d+`个~/);
-            var yuchiNum = yuchiMd[0].match(/\d+/)[0];
-            fish_tongji.bagChi = parseInt(yuchiNum);
-            console.log(yuchiNum);
-        }
-        if (md.match(/`鱼丸`还有 ...`\d+`个~/)) {
-            var yuwanMd = md.match(/`鱼丸`还有 ...`\d+`个~/);
-            var yuwanNum = yuwanMd[0].match(/\d+/)[0];
-            fish_tongji.bagWan = parseInt(yuwanNum);
-            console.log(yuwanNum);
-        }
-        // 鱼叉列表
-        if (md.indexOf('鱼叉列表') > -1) {
-            var yuchaMd = md.split("色鱼叉");
-            fish_tongji.bagCha = yuchaMd.length - 1;
-            console.log(yuchaMd.length);
-
-            var chaList = [];
-            yuchaMd.forEach(e => {
-                var color = e.substring(e.length - 1);
-                if (color == '橙') {
-                    chaList.push('🧡');
-                } else if (color == '紫'){
-                    chaList.push('💜');
-                } else if (color == '白'){
-                    chaList.push('🤍');
-                }
-            });
-            fish_tongji.yuchaList = chaList;
-        } else {
-            fish_tongji.bagCha = 0;
-            fish_tongji.yuchaList = [];
-        }
-        window.localStorage.setItem('fish-tongji', JSON.stringify(fish_tongji));
-    }
-
-    //统计
-    var newOpt = {
-        yuchi: 0,
-        biuYuchi: 0,
-        total: 0,
-        yuwan: 0,
-        chengse: 0,
-        zise: 0,
-        baise: 0,
-        cishu: 0,
-        huanle: 0,
-        kouling: 0,
-        five2one: 0,
-        byYuchi: 0,
-        yuchaList: [],
-        dateStr: new Date().toLocaleString(),
-        date: new Date().getDate()
-    };
-    var fish_tongji = window.localStorage['fish-tongji'] ? JSON.parse(window.localStorage['fish-tongji']) : newOpt;
-    async function tongji(markDown, content) {
-        try {
-            if (new Date().getDate() != fish_tongji.date) { // 隔日重置
-                // 保留背包数据
-                newOpt.bagChi = fish_tongji.bagChi;
-                newOpt.bagWan = fish_tongji.bagWan;
-                newOpt.bagCha = fish_tongji.bagCha;
-                newOpt.yuchaList = fish_tongji.yuchaList;
-                newOpt.byDateStr = fish_tongji.byDateStr;
-                fish_tongji = newOpt;
-                fish_tongji.dateStr = new Date().toLocaleString();
-                fish_tongji.date = new Date().getDate();
-            }
-            if (markDown.match(/您获得了 ...\d+ 个... .{2}. 已到账...\[来源: 你的鱼叉/)) {
-                var match = markDown.match(/\d+/);
-                match = parseInt(match[0]);
-                if (match) {
-                    fish_tongji.yuchaList.shift();
-                    if (markDown.indexOf('鱼翅') > -1) {
-                        fish_tongji.yuchi = fish_tongji.yuchi + match
-                        fish_tongji.total += match
-                        fish_tongji.biuYuchi += match
-                        fish_tongji.bagChi += match
-                    } else {
-                        fish_tongji.yuwan = fish_tongji.yuwan + match
-                        fish_tongji.bagWan += match
-                    }
-                }
-                fish_tongji.bagCha -= 1;
-            } else if (markDown.indexOf('亲爱的玩家. 你拿出渔网里的东西一看. 竟然是') > -1 || markDown.indexOf('亲爱的玩家. 你踩在沙滩上感觉有什么东西硌脚, 抬起脚一看. 竟然是') > -1) {
-                var name = markDown.substring(markDown.indexOf('`') + 1, markDown.lastIndexOf('`'));
-                // console.log(name)
-                fish_tongji.bagCha += 1;
-                switch (name) {
-                    case '橙色鱼叉':
-                        fish_tongji.chengse += 1;
-                        fish_tongji.yuchaList.push('🧡');
-                        break
-                    case '紫色鱼叉':
-                        fish_tongji.zise += 1;
-                        fish_tongji.yuchaList.push('💜');
-                        break
-                    case '白色鱼叉':
-                        fish_tongji.baise += 1;
-                        fish_tongji.yuchaList.push('🤍');
-                        break
-                    default:
-                        break
-                }
-            } else if (markDown.indexOf('亲爱的玩家. 由于你的橙色品质强化已到顶峰, 触发橙色隐藏功能-CV. 又获得了一把鱼叉~') > -1) {
-                fish_tongji.chengse += 1
-                fish_tongji.bagCha += 1;
-                fish_tongji.yuchaList.push('💕');
-                // console.log('CV')
-            } else if (markDown.indexOf('您失去了 ...5 个... 鱼翅. 已扣除...[来源: 聊天室游戏-捡鱼叉]') > -1) {
-                fish_tongji.cishu += 1
-                fish_tongji.total -= 5
-                fish_tongji.bagChi -= 5
-            } else if (markDown.match(/您获得了 ...\d+ 个... 鱼翅. 已到账...\[来源: 欢乐时光兑换鱼翅/)) {
-                fish_tongji.huanle = fish_tongji.huanle + parseInt(markDown.match(/\d+/)[0])
-                fish_tongji.bagChi += parseInt(markDown.match(/\d+/)[0])
-            } else if (markDown.indexOf('嘻嘻 恭喜你获得一个口令红包, 快去聊天室粘贴口令吧~') > -1) {
-                fish_tongji.kouling += 1
-            } else if (markDown.indexOf('您获得了 ...1 个... 鱼翅. 已到账...[来源: 聊天室游戏-捡鱼叉收获]') > -1) {
-                fish_tongji.five2one += 1
-                fish_tongji.total += 1
-                fish_tongji.bagChi += 1;
-                // console.log('五换一')
-            } else if (content.match(/您获得了 ...\d+ 个... 鱼翅. 已到账...\[来源: 暴雨梨花针/)) {
-                var match = markDown.match(/\d+/);
-                match = parseInt(match[0]);
-                fish_tongji.total += match
-                fish_tongji.yuchi += match
-                fish_tongji.byYuchi += match
-                fish_tongji.bagChi += match
-                fish_tongji.bagCha = 0;
-                fish_tongji.yuchaList = [];
-                fish_tongji.byDateStr = new Date().toLocaleString()
-            } else if (content.match(/您失去了 ...\d+ 个... 鱼翅. 已扣除.../) && markDown.indexOf("鱼叉抢夺") > -1) { // 被标记
-                var match = markDown.match(/\d+/);
-                match = parseInt(match[0]);
-                fish_tongji.bagChi -= match;
-            } else if (content.match(/您获得了 ...\d+ 个... .{2}. 已到账...\[来源: 聊天室活动/)) { // 天降
-                var match = markDown.match(/\d+/);
-                match = parseInt(match[0]);
-                if (markDown.indexOf("鱼翅") > -1) {
-                    fish_tongji.bagChi += match
-                } else {
-                    fish_tongji.bagWan += match
-                }
-            } else if (content.match(/您获得了 ...\d+ 个... 鱼丸. 已到账...\[来源: 冰冰的很嫌弃掉在地上的鱼丸/)) { // 探索或者天降鱼丸
-                var match = markDown.match(/\d+/);
-                match = parseInt(match[0]);
-                fish_tongji.bagWan += match;
-            } else if (content.match(/您失去了 ...\d+ 个... 鱼翅. 已扣除...\[来源: 修/)) { //修炼心法或者修习功法
-                var match = markDown.match(/\d+/);
-                match = parseInt(match[0]);
-                fish_tongji.bagChi -= match;
-            } else if (markDown.indexOf('鱼叉增幅溢出转化') > -1) {
-                fish_tongji.bagChi += 5;
-                fish_tongji.yuchi += 5;
-                fish_tongji.total += 5;
-            } else if (markDown.indexOf('Token是') > -1 && markDown.indexOf('初始化') > -1) {
-                yc_token = content.substring(content.indexOf('Token是：') + 7, content.indexOf('</p>'));
-                window.localStorage.setItem('yc_token', yc_token);
-            }
-            window.localStorage.setItem('fish-tongji', JSON.stringify(fish_tongji))
-        } catch (e) {
-            console.log(e)
-        }
-    }
     waitWss();
+
 
     GM_addStyle('#robotBox #robotMsgList, #noteMsgList {scrollbar-width: none;}');
 
