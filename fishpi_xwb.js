@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         鱼派小尾巴
 // @namespace    http://tampermonkey.net/
-// @version      1.6.5
+// @version      1.6.6
 // @description  try to thank APTX-4869!
 // @author       (江户川-哀酱)APTX-4869
 // @match        https://fishpi.cn/cr
@@ -14,7 +14,7 @@
 
 (function () {
     'use strict';
-    const version_us = "v1.6.5";
+    const version_us = "v1.6.6";
     var vipList = Label.vipUserList;
     var heads = document.getElementsByTagName("head");
     var link = document.getElementsByTagName("link");
@@ -144,37 +144,44 @@
     ChatRoom.send = function (needwb) {
         // var hyd = getHYD();
         var wbMsg = '\n\n\n> ——嘀嘀🎉 [如何使用小尾巴](https://fishpi.cn/article/1658802906181) ';
-        var t, e;
-        ChatRoom.isSend || (ChatRoom.isSend = !0,
-            e = {
-                content: t = ChatRoom.editor.getValue(),
-                client: "Web/小尾巴" + version_us
-            },
+        if (!ChatRoom.isSend) {
+            ChatRoom.isSend = !0;
+            var e = ChatRoom.editor.getValue();
+            if (ChatRoom.quoteData.userName && ChatRoom.quoteData.content) {
+                let t = ChatRoom.quoteData.content.replace(/\n/g, "\n> ");
+                e = `\n##### 引用 @${ChatRoom.quoteData.userName} [↩](${Label.servePath}/cr#chatroom${ChatRoom.quoteData.messageId} "跳转至原消息")  \n> ${t}</span>\n\n` + e
+            }
+            var t = {
+                content: e,
+                client: thisClient
+            };
             ChatRoom.editor.setValue(""),
             $.ajax({
                 url: Label.servePath + "/chat-room/send",
                 type: "POST",
                 cache: !1,
                 data: JSON.stringify({
-                    content: t.trim().length == 0 || (!suffixFlag) || needwb == 0 || t.trim().startsWith('~ ') || t.trim().startsWith('/ ') || t.trim().startsWith('鸽 ') || t.trim().startsWith('冰冰 ') || t.trim().startsWith('点歌 ') || t.trim().startsWith('TTS ') || t.trim().startsWith('朗读 ') ? t : t + wbMsg,
-                    client: "Web/小尾巴" + version_us
+                    content: e.trim().length == 0 || (!suffixFlag) || needwb == 0 || e.trim().startsWith('凌 ') || e.trim().startsWith('鸽 ') || e.trim().startsWith('冰冰 ') || e.trim().startsWith('点歌 ') || e.trim().startsWith('TTS ')|| e.trim().startsWith('zf') || e.trim().startsWith('朗读 ') ? e : e + wbMsg,
+                    client: "PC/小尾巴1.6.6 01-23更新"
                 }),
-                beforeSend: function () {
+                beforeSend: function() {
                     $(".form button.red").attr("disabled", "disabled").css("opacity", "0.3")
                 },
-                success: function (e) {
-                    0 === e.code ? $("#chatContentTip").removeClass("error succ").html("") : ($("#chatContentTip").addClass("error").html("<ul><li>" + e.msg + "</li></ul>"),
-                        ChatRoom.editor.setValue(t))
+                success: function(t) {
+                    0 === t.code ? ($("#chatContentTip").removeClass("error succ").html(""),
+                    ChatRoom.cancelQuote()) : ($("#chatContentTip").addClass("error").html("<ul><li>" + t.msg + "</li></ul>"),
+                    ChatRoom.editor.setValue(ChatRoom.editor.getValue().replace(e.split("\n\n")[0] + "\n\n", "")))
                 },
-                error: function (e) {
-                    $("#chatContentTip").addClass("error").html("<ul><li>" + e.statusText + "</li></ul>"),
-                        ChatRoom.editor.setValue(t)
+                error: function(t) {
+                    $("#chatContentTip").addClass("error").html("<ul><li>" + t.statusText + "</li></ul>"),
+                    ChatRoom.editor.setValue(ChatRoom.editor.getValue().replace(e.split("\n\n")[0] + "\n\n", ""))
                 },
-                complete: function (e, t) {
+                complete: function(e, t) {
                     ChatRoom.isSend = !1,
-                        $(".form button.red").removeAttr("disabled").css("opacity", "1")
+                    $(".form button.red").removeAttr("disabled").css("opacity", "1")
                 }
-            }))
+            })
+        }
     };
 
 
